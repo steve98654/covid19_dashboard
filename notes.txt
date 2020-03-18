@@ -1,0 +1,59 @@
+check origrate for MS and LA after katrina
+more recent TX and FL 
+servier renego. power diff states 
+how long states take to process deliq loans 
+2013 ... crts transfer risk from gses to market 
+
+past orig rate vs default ... especially before/after after 2013
+
+servicers have become more fragmented after crisi sdue to FED/CCAR cap requirements for large banks making them quit the business
+
+matrix transition rate, month to month delqstatus change.
+look at this for 2006 for MS/LA katrina ...
+
+fannie HARP table? 
+
+new policies imple. after crisis on Fannie, Freddie, Ginnie
+
+loanpurpose s.. cashout/refi .. 
+vs rate refi (just because of declining rate)
+
+Coastal 3zip codes: 
+http://mapshop.com/sales_territory_maps/3digit-zipcode-mapx.html
+
+3zip, Major City, State
+785, Harlingen TX
+783, Kingsville TX
+784, Corpus Christi, TX
+779, Victoria, TX
+744, Freeport,TX
+777, Port Arthur Tx
+395, Gulfport MS
+365, Foley, AL
+366, Mobile, AL
+325, Pensicola, FL
+324, Panama City, FL
+323, Tallahassee, FL
+344, Lady Lake, FL
+346, Clearwater, FL
+347, St. Petersburg, FL
+342, Venice, FL
+339, Cape Coral, FL
+341, Naples, FL
+830, Keys, FL
+331, Miami, FL
+333, Fort Lauderdale, FL
+334. Palm Beach, FL
+349, Fort Pierce, FL
+329, Palm Bay, FL
+321, Daytona Beach, FL
+322, Jacksonville, FL
+315, Brunswick, GA
+314, Richmond Hill, GA
+313, Savannah, GA
+299, Hilton Head, SC
+294, Charleston, SC
+295, Myrtle Beach, SC
+284, Wilmington, NC
+285, Havelock, NC
+
