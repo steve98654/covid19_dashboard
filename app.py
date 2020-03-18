@@ -118,7 +118,7 @@ app.layout = html.Div([
                 {'label': 'Relative', 'value': 'relative'},
             ],
             style={'width': '100%', 'display': 'block'},
-            value='absolute',
+            value='relative',
             )]),className="two columns")
         ],className='row'),
     
