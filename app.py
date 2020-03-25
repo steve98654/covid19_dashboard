@@ -13,68 +13,28 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State 
 
-def _makedfs(datatype):
-    confirmed_url = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv'
-    deaths_url = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv'
-    recovered_url = 'https://github.com/CSSEGISandData/COVID-19/blob/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv'
+mainflename = "http://covidtracking.com/api/states/daily.csv"
+globdf = pd.read_csv(mainflename).fillna(0)
+globdf['date'] = pd.to_datetime(globdf['date'],format='%Y%m%d')
+globdf['ratio'] = (globdf['positive']/(globdf['positive']+globdf['negative'])).fillna(0)  
 
-    statesdf = pd.read_csv('https://raw.githubusercontent.com/steve98654/covid19-US/master/states.csv')    # table of state names and abbreviations
-    state_list = statesdf['State'].values
+def _create_df(field,mode):
+    '''
+    mode = abs, rel, log10 
+    field = 'positive','negative','pending','hospitalized','death' # positive
+    '''
+    if mode == 'abs':
+        rtndf = pd.pivot_table(globdf,values=field,index='date',columns='state').fillna(0.)
+    elif mode == 'rel': 
+        rtndf = pd.pivot_table(globdf,values=field,index='date',columns='state').fillna(0.).pct_change().replace(np.inf,0.).fillna(0.)
+    elif mode == 'log10':
+        rtndf = np.log10(pd.pivot_table(globdf,values=field,index='date',columns='state').fillna(0.)+1)
 
-    if datatype == 'Confirmed Cases':  # datatype switch
-        df = pd.read_csv(confirmed_url,error_bad_lines=False)
-    elif datatype == 'Deaths':
-        df = pd.read_csv(deaths_url,error_bad_lines=False)
-    #elif datatype == 'Recovered':
-    #    df = pd.read_csv(recovered_url,error_bad_lines=False)
+    print(field)
+    print(mode)
+    return rtndf
 
-
-    # data wrangling     
-    df = df[df['Country/Region'] == 'US']
-    df = df[df['Province/State'].isin(state_list)]  
-    df = df.set_index('Province/State')
-    dropcols = ['Country/Region','Lat','Long']
-    df = df.drop(dropcols,axis=1).T
-    df.index = pd.to_datetime(df.index)
-    start_date = '2020-03-10' # no data prior to this date
-    df = df[start_date:]
-    df = df.stack().reset_index()
-    df.columns = ['date','state','cases']
-    df['state'] = df['state'].map(dict(zip(statesdf['State'],statesdf['Abbreviation'])))
-    df['date'] = df['date'].map(str)
-    pct_change = pd.pivot_table(df,values='cases',index='date',columns='state').pct_change().tail(-1).fillna(0).replace(np.inf,0).unstack().reset_index()
-    df = pd.merge(df,pct_change,on=['date','state'])
-    df = df.rename(columns={0:"Case-%Change"})
-    df['date'] = df['date'].apply(lambda x:x.split(" ")[0])
-
-    absdf = df.pivot_table(index='date',columns='state',values='cases')  
-    reldf = df.pivot_table(index='date',columns='state',values='Case-%Change')  
-
-    return absdf, reldf
-
-conf_absdf, conf_reldf = _makedfs('Confirmed Cases')
-death_absdf, death_reldf = _makedfs('Deaths')
-#recover_absdf, recover_reldf = _makedfs('Recovered')
-
-absdf = conf_absdf
-reldf = conf_reldf
-
-# stdf = pd.read_pickle('dashboard_default_df.pkl')
-
-####### put in callback 
-
-#absolute_cases = False
-#if absolute_cases: 
-#    absdf = np.log10(absdf+1) # add one to avoid np.infty errors
-#    title = "COVID-19 Total Cases"
-#    maxval = np.max(absdf)
-#else: 
-#    title = "COVID-19 Daily %Change "
-#    maxval = 1
-
-stdf = reldf
-################
-
+stdf = _create_df('positive','log10')
 
 server = Flask('my app')
 server.secret_key = os.environ.get('secret_key', 'secret')
@@ -103,22 +63,25 @@ app.layout = html.Div([
             html.Div(html.Label(["Data Type:",dcc.Dropdown(
                 id='datatype',
                 options=[
-                {'label': 'Confirmed Cases', 'value': 'confirmed'},
-                {'label': 'Deaths', 'value': 'deaths'},
-                #{'label': 'Recovered', 'value': 'recovered'}
+                {'label': 'Confirmed Cases', 'value': 'positive'},
+                {'label': 'Negative Tests', 'value': 'negative'},
+                {'label': 'Hospitalized', 'value': 'hospitalized'},
+                {'label': 'Deaths', 'value': 'death'},
+                {'label': 'Positive Test Ratio', 'value': 'ratio'},
             ],
             style={'width': '100%', 'display': 'block'},
-            value='confirmed'
+            value='positive'
             )]),className="two columns"),
             html.Div(
                 html.Label(["Value Type:",dcc.Dropdown(
             id='valuetype',
             options=[
-                {'label': 'Absolute', 'value': 'absolute'},
-                {'label': 'Relative', 'value': 'relative'},
+                {'label': 'Absolute', 'value': 'abs'},
+                {'label': 'Relative', 'value': 'rel'},
+                {'label': 'Log10', 'value': 'log10'},
             ],
             style={'width': '100%', 'display': 'block'},
-            value='relative',
+            value='rel',
             )]),className="two columns")
         ],className='row'),
     
@@ -147,51 +110,53 @@ app.layout = html.Div([
 
 @app.callback(Output('my-graph','figure'),[Input('slide','value'),Input('datatype','value'),Input('valuetype','value')])
 def update_graph(slide,datatype,valuetype):
-    if valuetype == 'absolute':
-        if datatype == "confirmed":
-            tmpdf = pd.DataFrame(conf_absdf.iloc[slide,:])
-            maxval = np.max(conf_absdf)
-            title = "Total Confirmed Cases as of "
-        elif datatype == "deaths":
-            tmpdf = pd.DataFrame(death_absdf.iloc[slide,:])
-            maxval = np.max(death_absdf)
-            title = "Total Deaths as of "
-        elif datatype == "recovered":
-            tmpdf = pd.DataFrame(recover_absdf.iloc[slide,:])
-            maxval = np.max(recover_absdf)
-            title = "Total Recoveries as of "
-        
-        barname = "log10(Cases)"
-        tmpdf = np.log10(tmpdf+1) # add one to avoid np.infty errors
-        #title = "COVID-19 Total Absolute " + datatype
-
-    elif valuetype == 'relative':
-        maxval = 1.
-        if datatype == "confirmed":
-            tmpdf = pd.DataFrame(conf_reldf.iloc[slide,:])
-            title = "Daily Percentage Change in Confirmed Cases as of "
-        elif datatype == "deaths":
-            tmpdf = pd.DataFrame(death_reldf.iloc[slide,:])
-            title = "Daily Percentage Change in Deaths as of "
-        elif datatype == "recovered":
-            tmpdf = pd.DataFrame(recover_reldf.iloc[slide,:])
-            title = "Daily Percentage Change in Recoveries as of "
-
-        barname = "Daily Pct.<br>Change"
-
-    title_str = 'COVID-19 ' + title + str(stdf.index[slide])
-
-    #import ipdb 
+    #import ipdb
     #ipdb.set_trace()
+    tmpdf = _create_df(datatype,valuetype)
+    tmpdf = pd.DataFrame(tmpdf.iloc[slide,:])
+    maxval = np.max(tmpdf)
+    #title = 'Tmp title'
+
+    if valuetype == 'log10': 
+        barname = 'Log10(Count)'
+    elif valuetype == 'abs':
+        barname = 'Count'
+    elif valuetype == 'rel':
+        barname = "Relative"
+
+    if datatype == "positive":
+        dtxt = "Positive Cases"
+    elif datatype == "negative":
+        dtxt = "Negative Cases"
+    elif datatype == "hospitalized":
+        dtxt = "Hospitalized Cases"
+    elif datatype == "death": 
+        dtxt = "Deaths"
+    elif datatype == "ratio": 
+        dtxt = "Positive to Total Test Ratio"
+
+    title_str = 'COVID-19 ' + dtxt + ' on ' + str(stdf.index[slide].date())
+
     tmpdf.columns = ['Del_Per']
-    #tmpdf['vls'] = tmpdf.values
-    #tmpdf['state'] = tmpdf.index
 
     scl = [[0.0, 'rgb(242,240,247)'],[0.2, 'rgb(218,218,235)'],[0.4, 'rgb(188,189,220)'],\
            [0.6, 'rgb(158,154,200)'],[0.8, 'rgb(117,107,177)'],[1.0, 'rgb(84,39,143)']]
 
-    #tmpdf['text'] = tmpdf['state'] + '<br>' +\
-    #                'Del % ' + tmpdf['vls'].astype(str) 
+    scl = [[1.0, 'rgb(0,13,255)'],
+           [0.9, 'rgb(25,37,255)'],
+           [0.8, 'rgb(51,61,255)'],
+           [0.7, 'rgb(75,85,255)'],
+           [0.6, 'rgb(102,110,255)'],
+           [0.5, 'rgb(127,134,255)'],
+           [0.4, 'rgb(153,158,255)'],
+           [0.3, 'rgb(178,182,255)'],
+           [0.2, 'rgb(204,206,255)'],
+           [0.1, 'rgb(229,230,255)'],
+           [0.0, 'rgb(255,255,255)']
+           ]
+
+    scl = [[0.0, 'rgb(255,255,255)'],[0.2, 'rgb(204,206,255)'],[0.4, 'rgb(153,158,255)'],\
+           [0.6, 'rgb(102,110,255)'],[0.8, 'rgb(51,61,255)'],[1.0, 'rgb(0,13,255)']]
 
     data_dict = [ dict(
              type='choropleth',
@@ -203,8 +168,8 @@ def update_graph(slide,datatype,valuetype):
              zmin = 0.,
              zmax = maxval,
 
-             #colorscale = scl,
-             autocolorscale = True,
+             colorscale = scl,
+             autocolorscale = False,
              showscale=True,
 
              colorbar = dict(
