@@ -17,6 +17,7 @@ mainflename = "http://covidtracking.com/api/states/daily.csv"
 globdf = pd.read_csv(mainflename).fillna(0)
 globdf['date'] = pd.to_datetime(globdf['date'],format='%Y%m%d')
 globdf['ratio'] = (globdf['positive']/(globdf['positive']+globdf['negative'])).fillna(0)  
+globdf['negative'] = (globdf['positive']+globdf['negative']).fillna(0)  # make negative total
 
 def _create_df(field,mode):
     '''
@@ -64,7 +65,7 @@ app.layout = html.Div([
                 id='datatype',
                 options=[
                 {'label': 'Confirmed Cases', 'value': 'positive'},
-                {'label': 'Negative Tests', 'value': 'negative'},
+                {'label': 'Total Tests', 'value': 'negative'},
                 {'label': 'Hospitalized', 'value': 'hospitalized'},
                 {'label': 'Deaths', 'value': 'death'},
                 {'label': 'Positive Test Ratio', 'value': 'ratio'},
@@ -127,7 +128,7 @@ def update_graph(slide,datatype,valuetype):
     if datatype == "positive":
         dtxt = "Positive Cases"
     elif datatype == "negative":
-        dtxt = "Negative Cases"
+        dtxt = "Total Tests"
     elif datatype == "hospitalized":
         dtxt = "Hospitalized Cases"
     elif datatype == "death": 
