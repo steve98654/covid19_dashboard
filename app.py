@@ -15,9 +15,14 @@ from dash.dependencies import Input, Output, State
 
 mainflename = "http://covidtracking.com/api/states/daily.csv"
 globdf = pd.read_csv(mainflename).fillna(0)
+
+rmlst = ['MP','PR','GU','VI'] 
+globdf = globdf[~globdf['state'].isin(rmlst)]
+
 globdf['date'] = pd.to_datetime(globdf['date'],format='%Y%m%d')
 globdf['ratio'] = (globdf['positive']/(globdf['positive']+globdf['negative'])).fillna(0)  
 globdf['negative'] = (globdf['positive']+globdf['negative']).fillna(0)  # make negative total
+
 
 def _create_df(field,mode):
     '''
@@ -33,6 +38,7 @@ def _create_df(field,mode):
 
     print(field)
     print(mode)
+
     return rtndf
 
 stdf = _create_df('positive','log10')
